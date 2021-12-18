@@ -2,6 +2,7 @@ import { WalletMultiButton } from "@solana/wallet-adapter-ant-design";
 import { Button, Col, Row } from "antd";
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
+import SceneFunc from "../../components/SceneFunc";
 import { TokenIcon } from "../../components/TokenIcon";
 import { useConnectionConfig } from "../../contexts/connection";
 import { useMarkets } from "../../contexts/market";
@@ -12,7 +13,7 @@ import { formatUSD } from "../../utils/utils";
 export const HomeView = () => {
   const { marketEmitter, midPriceInUSD } = useMarkets();
   const { tokenMap } = useConnectionConfig();
-  const SRM_ADDRESS = "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt";
+  const SRM_ADDRESS = "a";
   const SRM = useUserBalance(SRM_ADDRESS);
   const SOL = useUserBalance(WRAPPED_SOL_MINT);
   const { balanceInUSD: totalBalanceInUSD } = useUserTotalBalance();
@@ -32,6 +33,7 @@ export const HomeView = () => {
   }, [marketEmitter, midPriceInUSD, tokenMap]);
 
   return (
+    <div style={{ width: '100%' }}>
     <Row gutter={[16, 16]} align="middle">
       <Col span={24}>
         <h2>Your balances ({formatUSD.format(totalBalanceInUSD)}):</h2>
@@ -43,7 +45,13 @@ export const HomeView = () => {
           {formatUSD.format(SRM?.balanceInUSD)})
         </h2>
       </Col>
-
+      </Row>
+      <Row gutter={[0, 0]} align="middle">
+      <Col span={24}>
+          <SceneFunc />
+      </Col>
+      </Row>
+      <Row gutter={[16, 16]} align="middle">
       <Col span={12}>
         <WalletMultiButton type="ghost" />
       </Col>
@@ -56,5 +64,6 @@ export const HomeView = () => {
         <div className="builton" />
       </Col>
     </Row>
+    </div>
   );
 };

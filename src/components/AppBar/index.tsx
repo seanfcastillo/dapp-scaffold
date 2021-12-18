@@ -13,9 +13,9 @@ export const AppBar = (props: { left?: JSX.Element; right?: JSX.Element }) => {
   const { connected } = useWallet();
   const TopBar = (
     <div className="App-Bar-right">
-      <WalletMultiButton type="primary" />
+      <WalletMultiButton />
       <div style={{ margin: 5 }} />
-      {connected ? <WalletDisconnectButton type="ghost" /> : null}
+      {connected ? <WalletDisconnectButton /> : null}
       <Popover
         placement="topRight"
         title={LABELS.SETTINGS_TOOLTIP}

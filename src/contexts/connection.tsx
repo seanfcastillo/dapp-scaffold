@@ -103,13 +103,22 @@ export function ConnectionProvider({ children = undefined as any }) {
       const list = res
         .filterByChainId(chain.chainID)
         .excludeByTag("nft")
+        .excludeByTag("NFT")
         .getList();
+
       const knownMints = list.reduce((map, item) => {
-        map.set(item.address, item);
+        //map.set(item.address, item);
+        map.set(item.address.trim(), item);
         return map;
       }, new Map<string, TokenInfo>());
 
-      const accounts = await getMultipleAccounts(connection, [...knownMints.keys()], 'single');
+      let mintString = "";
+      [...knownMints.keys()].forEach((mint) => { 
+        //mintString += "key: " + mint + " is NOT valid! \n"
+      });
+      console.log("token list size: " + knownMints.size + "\n " + mintString);
+
+      const accounts = await getMultipleAccounts(connection, [...knownMints.keys()].filter((x)=>isValidForConnectionClass(x)), 'single');
       accounts.keys.forEach((key, index) => {
         const account = accounts.array[index];
         if(!account) {
@@ -177,6 +186,12 @@ export function ConnectionProvider({ children = undefined as any }) {
       {children}
     </ConnectionContext.Provider>
   );
+}
+
+
+function isValidForConnectionClass(str) {
+  if (str === 'beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeef'){ return false; }
+  return true;
 }
 
 export function useConnection() {
@@ -254,14 +269,15 @@ export const sendTransaction = async (
   if (signers.length > 0) {
     transaction.partialSign(...signers);
   }
-  transaction = await wallet.signTransaction(transaction);
-  const rawTransaction = transaction.serialize();
+  //transaction = await wallet.signTransaction(transaction);
+  //const rawTransaction = transaction.serialize();
   let options = {
     skipPreflight: true,
     commitment: "singleGossip",
   };
 
-  const txid = await connection.sendRawTransaction(rawTransaction, options);
+  //const txid = await connection.sendRawTransaction(rawTransaction, options);
+  const txid = "";
 
   if (awaitConfirmation) {
     const status = (

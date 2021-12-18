@@ -5,6 +5,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  height: calc(100% - 1em);
 }
 
 code {
@@ -23,4 +24,15 @@ code {
   background-size: 300px;
   background-repeat: no-repeat;
   margin: 0 auto 0 auto;
+}
+
+#canvas {
+/*width: 55vw;*/
+/* min-width: 200px;
+max-width: 100%;
+min-height: 200px;
+max-height: 900px; */
+/*width: '50%';*
+/* margin: 'auto'; */
+/* display: 'block'; */
 }
