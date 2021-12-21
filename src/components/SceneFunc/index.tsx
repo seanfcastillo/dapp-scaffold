@@ -1,29 +1,29 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from 'three'
-import {GLTF, GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { Pathfinding } from 'three-pathfinding';
-import { Loader, MeshBasicMaterial, Object3D, ObjectLoader, Scene, Vector2, Vector3 } from "three";
+
 import Entity from "./Entity";
 import { Player } from "./Player";
-import { drawCircle, loadModelAndAddToScene, PlayerProps } from "./GameUtils";
+import { PlayerProps } from "./GameUtils";
 import Unit from "./Unit";
+import { Level } from "./Level";
+import { Renderer } from "three";
 
 function SceneFunc () {
     //console.dir(process.env);
     const mainDiv = useRef<HTMLDivElement>(null)
-    let renderer;
-         useEffect(() => {
-            renderer = getMainGameRenderer(mainDiv.current);
-            while (mainDiv.current?.firstChild) {
-                mainDiv.current?.removeChild(mainDiv.current?.firstChild);
-            }
-            if(mainDiv.current?.childNodes.length === 0) {
-                mainDiv.current?.appendChild(renderer.domElement);
-            }
-         }, []);
+    const renderer = useRef<Renderer>(getMainGameRenderer(mainDiv.current));
 
-         return (<div className="scene" style={{ margin: 'auto', width: '50%'}}ref = {mainDiv}>{}</div>);
-    };
+    useEffect(() => {
+        // while (mainDiv.current?.firstChild) {
+            // mainDiv.current?.removeChild(mainDiv.current?.firstChild);
+        // }
+        if(mainDiv.current?.childNodes.length === 0) {
+            mainDiv.current?.appendChild(renderer.current.domElement);
+        }
+    }, []);
+
+    return (<div className="scene" style={{ margin: 'auto', width: '50%'}}ref = {mainDiv}>{}</div>);
+};
 
 function getMainGameRenderer (mainDiv: HTMLDivElement|null): THREE.WebGLRenderer  {
     const scene = new THREE.Scene();
@@ -33,8 +33,8 @@ function getMainGameRenderer (mainDiv: HTMLDivElement|null): THREE.WebGLRenderer
     const camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
     
     camera.position.x = 0;
-    camera.position.y = 15;
-    camera.position.z = 15
+    camera.position.y = 10;
+    camera.position.z = 15;
 
     const renderer = new THREE.WebGLRenderer();
     renderer.shadowMap.enabled = true;
@@ -121,37 +121,19 @@ class Resizer {
     onResize() {}
   }
 
-
   async function generateLevel(scene, entities, playerProps: PlayerProps) {
-      
     let clientPlayer = new Player(playerProps);
     entities.push(clientPlayer);
 
-    let playerUnit = new Unit(clientPlayer, scene);
+    let level = new Level(scene);
+
+    let playerUnit = new Unit(clientPlayer, scene, level);
     await playerUnit.start();
     entities.push(playerUnit);
     clientPlayer.selectUnit(playerUnit);
 
-
-
-    const glbLoader = new GLTFLoader();
-    let level;
-    await loadModelAndAddToScene(glbLoader, '../models/glb/level1.glb').then((obj) => {level = obj})
-    scene.add(level.scene);
-    level.scene.position.x = 35;
-    level.scene.position.z = 5;
-  
     
-    let rawNavMesh;
-    let navMesh;
-    await loadModelAndAddToScene(glbLoader, '../models/glb/level1_nav.glb').then((obj) => {rawNavMesh = obj})
-    rawNavMesh.scene.traverse((node) => {
-        if (node.isMesh) navMesh = node;
-    });
-    // Create level.
-    const pathfinding = new Pathfinding();
-    const ZONE = 'level1';
-    pathfinding.setZoneData(ZONE, Pathfinding.createZone(navMesh.geometry));
+    
     
     // Find path from A to B.
     // const groupID = pathfinding.getGroup(ZONE, a);

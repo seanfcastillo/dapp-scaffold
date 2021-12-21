@@ -19,7 +19,8 @@
     "noEmit": true,
     "typeRoots": [
       "./types",
-      "./node_modules/@types"
+      "./node_modules/@types",
+      "./src/components/SceneFunc/types/three-pathfinding.d.ts"
     ],
     "jsx": "react-jsx",
     "isolatedModules": true,
@@ -35,7 +36,10 @@
     ],
     "noImplicitAny": false,
     "sourceMap": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    // "paths" :{
+    //   "*": ["three-pathfinding", "src/components/SceneFunc/types/three-pathfinding.d.ts"]
+    // }
   },
   "include": [
     "src/**/*",

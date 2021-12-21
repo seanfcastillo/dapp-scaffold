@@ -1,0 +1,8 @@
+{
+  "resolution": "main",
+  "tree": {
+    "src": "/mnt/e/Solana/dapp-scaffold/src/components/SceneFunc/types/three-pathfinding.d.ts",
+    "raw": "file:src/components/SceneFunc/types/three-pathfinding.d.ts",
+    "typings": "/mnt/e/Solana/dapp-scaffold/src/components/SceneFunc/types/three-pathfinding.d.ts"
+  }
+}

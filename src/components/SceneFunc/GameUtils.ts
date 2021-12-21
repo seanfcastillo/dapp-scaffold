@@ -1,8 +1,8 @@
 import * as THREE from 'three'
-import { Camera, ObjectLoader, PerspectiveCamera, Scene, WebGLRenderer } from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { Camera, Object3D, ObjectLoader, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { GLTF, GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
-export async function loadModelAndAddToScene(loader: GLTFLoader|ObjectLoader, path: string) {
+export async function loadModel(loader: GLTFLoader|ObjectLoader, path: string): Promise<GLTF|Object3D> {
     return await loader.loadAsync(path);
   }
 

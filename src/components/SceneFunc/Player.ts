@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { Line, MeshBasicMaterial, PerspectiveCamera, Scene, Vector2, Vector4, WebGLRenderer } from "three";
+import { Line, MeshBasicMaterial, PerspectiveCamera, Scene, Vector2, Vector3, Vector4, WebGLRenderer } from "three";
+import { GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import Entity from "./Entity";
 import { drawCircle, PlayerProps } from "./GameUtils";
 import Unit from "./Unit";
@@ -66,7 +67,7 @@ export class Player implements Entity {
     onMouseMove( event ) {
         // calculate mouse position in normalized device coordinates
         // (-1 to +1) for both components
-        if(this.mouse !== undefined) {
+        if(this.mouse !== undefined && this.divPosition !== undefined) {
             //console.log(this.mouse);
             // this.mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
             // this.mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
@@ -91,40 +92,9 @@ export class Player implements Entity {
     onMouseDown( event ) {
         let done = false;
         if(!done) {
-
-            var vec = new THREE.Vector3(); // create once and reuse
-            var pos = new THREE.Vector3(); // create once and reuse
-
-            vec.set(
-                ( event.clientX / window.innerWidth ) * 2 - 1,
-                - ( event.clientY / window.innerHeight ) * 2 + 1,
-                0.5 );
-
-            vec.unproject( this.camera );
-
-            vec.sub( this.camera.position ).normalize();
-
-            var distance = - this.camera.position.z / vec.z;
-
-            pos.copy( this.camera.position ).add( vec.multiplyScalar( distance ) );
-
-
-
-
-
-
-
-
-
-
-
-
             //console.log( "ray: " + this.raycaster +" mouse: " + this.mouse + ", cam: " + this.camera);
-            console.log("mx: " + this.mouse.x + ", my: " + this.mouse.y);
+            //console.log("mx: " + this.mouse.x + ", my: " + this.mouse.y);
             this.raycaster.setFromCamera( this.mouse, this.camera );
-
-            
-
 
             // calculate objects intersecting the picking ray
             const intersects = this.raycaster.intersectObjects( this.scene.children );
@@ -133,14 +103,18 @@ export class Player implements Entity {
             if(intersects.length > 0) {
                 this.pointSelector.visible = true;
                 let intersect =  intersects[ 0 ];
+               // let navMesh = intersect.object.getObjectByName("navmesh");
+
+                //console.log("object visible: " + navMesh.visible);
                 // (intersects[ i ].object as THREE.Mesh).material = new MeshBasicMaterial({color: 0x000000});
                 
                 this.pointSelector.position.x = intersect.point.x;
                 this.pointSelector.position.z = intersect.point.z;
-                this.pointSelector.position.y = intersect.point.y;//+.01;
-               // console.log("intersect x: " + intersect.point.x + ", intersect z: " + intersect.point.z + ", intersect y: " + intersect.point.y);
-               console.log("hit");
-            }        
+                this.pointSelector.position.y = intersect.point.y;
+                this.selectedUnit?.moveOrder(intersect.point);
+                // console.log("intersect x: " + intersect.point.x + ", intersect z: " + intersect.point.z + ", intersect y: " + intersect.point.y);
+                //console.log("hit");
+            }      
         }
         done = true;
     }
