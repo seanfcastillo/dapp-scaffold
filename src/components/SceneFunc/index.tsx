@@ -1,47 +1,75 @@
 import { useEffect, useRef } from "react";
 import * as THREE from 'three'
+import { IngamePopup } from "../IngamePopup";
 
 import Entity from "./Entity";
-import { Player } from "./Player";
-import { PlayerProps } from "./GameUtils";
-import Unit from "./Unit";
-import { Level } from "./Level";
-import { Renderer } from "three";
+import { GameStateManager } from "./GameStateManager";
+import { GuiManager } from "./GuiManager";
+import { TopDownCamera } from "./TopDownCamera";
 
 function SceneFunc () {
     //console.dir(process.env);
     const mainDiv = useRef<HTMLDivElement>(null)
-    const renderer = useRef<Renderer>(getMainGameRenderer(mainDiv.current));
+    // let renderer = useRef<Renderer>(null);
+    // if(renderer.current === null) {
+    //   renderer = useRef<Renderer>(g);
+    // }
 
     useEffect(() => {
         // while (mainDiv.current?.firstChild) {
             // mainDiv.current?.removeChild(mainDiv.current?.firstChild);
         // }
         if(mainDiv.current?.childNodes.length === 0) {
-            mainDiv.current?.appendChild(renderer.current.domElement);
+            const renderer = getMainGameRenderer(mainDiv.current).then((rendererRetruned)=>{
+              mainDiv.current?.appendChild(rendererRetruned.domElement);
+            });
+           
         }
     }, []);
 
     return (<div className="scene" style={{ margin: 'auto', width: '50%'}}ref = {mainDiv}>{}</div>);
 };
 
-function getMainGameRenderer (mainDiv: HTMLDivElement|null): THREE.WebGLRenderer  {
+
+// only show if wallet selected or user connected
+// const menu = (
+//   <Menu>
+//     {wallets.map((wallet) => (
+//       <Menu.Item key={wallet.name} onClick={() => select(wallet.name)}>
+//         Change Wallet to {wallet.name}
+//       </Menu.Item>
+//     ))}
+//   </Menu>
+// );
+
+function GetPopUp() {
+  let popup = IngamePopup({
+    onClick: null,
+    disabled: false
+  });
+  return popup;
+}
+
+async function getMainGameRenderer (mainDiv: HTMLDivElement|null): Promise<THREE.WebGLRenderer>  {
     const scene = new THREE.Scene();
 
     const entities:Entity[] = [];
-
-    const camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
-    
-    camera.position.x = 0;
-    camera.position.y = 10;
-    camera.position.z = 15;
 
     const renderer = new THREE.WebGLRenderer();
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
 
-    const playerProps = {camera: camera, canvas: renderer, mainDiv: mainDiv, scene: scene};
-    generateLevel(scene, entities, playerProps);
+    const topDownCamera = new TopDownCamera(scene, renderer);
+    await topDownCamera.start();
+    entities.push(topDownCamera);
+
+    const guiManager = new GuiManager(mainDiv!);
+
+    const playerProps = {camera: topDownCamera, canvas: renderer, mainDiv: mainDiv, scene: scene, guiManager: guiManager};
+
+    let gameManager = new GameStateManager(scene, entities, playerProps, mainDiv);
+    await gameManager.start();
+    let level = gameManager.currentLevel;
 
     //Create a DirectionalLight and turn on shadows for the light
     const dirLight = new THREE.DirectionalLight( 0xffffff, 1 );
@@ -60,37 +88,32 @@ function getMainGameRenderer (mainDiv: HTMLDivElement|null): THREE.WebGLRenderer
     
     
     scene.add( cube );
-    cube.position.x = 2;
-    
-
-    
-    camera.rotateX(-89);//-60);
-
-    
+    cube.position.x = 35;
     
 
     // main update loop
     function update() {
-        renderer.render( scene, camera );
-        cube.rotateX(.01);
-        entities.forEach(entity => {
-            entity.update();
-        })
+      if(topDownCamera.getPerspectiveCamera()) {
+        renderer.render( scene, topDownCamera.getPerspectiveCamera()! );
+      }
+      cube.rotateX(.01);
+      level?.world.fixedStep();
+      entities.forEach(entity => {
+          entity.update();
+      })
     }
 
     // resizer
-    const resizer = new Resizer(window, camera, renderer);
+    const resizer = new Resizer(window, topDownCamera.getPerspectiveCamera(), renderer);
     resizer.onResize = () => {
-        renderer.render( scene, camera);
+      if(topDownCamera.getPerspectiveCamera()) {
+        renderer.render( scene, topDownCamera.getPerspectiveCamera()!);
+      }
     };
 
-    
-
+  
     update();
     renderer.setAnimationLoop(update);
-    
-
-    
     return renderer;
 }
 
@@ -121,23 +144,6 @@ class Resizer {
     onResize() {}
   }
 
-  async function generateLevel(scene, entities, playerProps: PlayerProps) {
-    let clientPlayer = new Player(playerProps);
-    entities.push(clientPlayer);
-
-    let level = new Level(scene);
-
-    let playerUnit = new Unit(clientPlayer, scene, level);
-    await playerUnit.start();
-    entities.push(playerUnit);
-    clientPlayer.selectUnit(playerUnit);
-
-    
-    
-    
-    // Find path from A to B.
-    // const groupID = pathfinding.getGroup(ZONE, a);
-    // const path = pathfinding.findPath(a, b, ZONE, groupID);
-  }
+ 
 
 

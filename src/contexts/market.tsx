@@ -59,7 +59,7 @@ export function MarketProvider({ children = null as any }) {
                m.name === `${SERUM_TOKEN?.name}/USDT` || 
                m.address.toBase58() === marketAddress
       );
-
+      
       if (marketInfo) {
         acc.set(mintAddress, {
           marketInfo,
@@ -69,6 +69,12 @@ export function MarketProvider({ children = null as any }) {
       return acc;
     }, new Map<string, SerumMarket>()) as Map<string, SerumMarket>;
   }, [marketMints]);
+
+  let string = "";
+  marketByMint.forEach((a, b) => {
+    string += `${a}, ${b}`;
+});
+  console.log(`market info: length: ${marketByMint.size} and data: ${string}`);
 
   useEffect(() => {
     let timer = 0;
@@ -92,6 +98,8 @@ export function MarketProvider({ children = null as any }) {
       const allMarkets = [...marketByMint.values()].map((m) => {
         return m.marketInfo.address.toBase58();
       });
+
+      console.log(`allmarkets size: ${allMarkets.length}`)
 
       await getMultipleAccounts(
         connection,

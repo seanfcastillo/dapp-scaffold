@@ -104,7 +104,9 @@ export function ConnectionProvider({ children = undefined as any }) {
         .filterByChainId(chain.chainID)
         .excludeByTag("nft")
         .excludeByTag("NFT")
+        .filterByChainId(1) // there are >7000 tokens on solana chain and it takes a long time to iterate them, so we dont for now
         .getList();
+
 
       const knownMints = list.reduce((map, item) => {
         //map.set(item.address, item);
@@ -114,7 +116,7 @@ export function ConnectionProvider({ children = undefined as any }) {
 
       let mintString = "";
       [...knownMints.keys()].forEach((mint) => { 
-        //mintString += "key: " + mint + " is NOT valid! \n"
+        mintString += "key: " + mint;
       });
       console.log("token list size: " + knownMints.size + "\n " + mintString);
 

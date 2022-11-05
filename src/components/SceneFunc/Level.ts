@@ -1,24 +1,38 @@
 import { GLTF, GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
-import { loadModel } from "./GameUtils";
+import { COLLISION_FILTER_LEVEL, COLLISION_FILTER_PHYSICS, loadModel } from "./GameUtils";
 import { Pathfinding } from 'three-pathfinding'; 
-import { Mesh, MeshBasicMaterial, Scene, SphereGeometry, Vector3 } from "three";
+import { Box3, BoxGeometry, BoxHelper, BufferGeometry, Matrix4, Mesh, MeshBasicMaterial, Scene, SphereGeometry, Vector3 } from "three";
 import { group } from "console";
+import { Body, Box, Sphere, Vec3, World } from 'cannon-es'
+import { Material } from "material/Material";
+
 
 export class Level {
     levelMesh: GLTF | undefined;
-    navMesh: GLTF | undefined;
+    navMesh: Mesh | undefined;
     scene: Scene;
     pathfinding: Pathfinding;
-    readonly LEVEL_MESH_PATH = '../models/glb/level1.glb';
-    readonly LEVEL_NAV_MESH_PATH = '../models/glb/level1_nav.glb';
+    readonly LEVEL_MESH_PATH = '../models/glb/level1_unityNavmesh.glb';
+    //readonly LEVEL_NAV_MESH_PATH = ;
     readonly ZONE = 'level1';
+    colliders: BoxHelper[];
+    world: World;
+    playerStarts: Vector3[];
 
     constructor(scene) {
         this.scene = scene;
         // Create level.
         this.pathfinding = new Pathfinding();
 
-        this.start();
+        this.colliders = [];
+
+         // physics
+         const world = new World({
+            gravity: new Vec3(0, -9.82, 0),
+        })
+        this.world = world;
+
+        this.playerStarts = [];
     }
 
     async start() {
@@ -27,120 +41,156 @@ export class Level {
         await loadModel(glbLoader, this.LEVEL_MESH_PATH).then((obj) => {level = obj});
         this.levelMesh = level;
         this.scene.add(level.scene);
-        this.levelMesh!.scene.position.x = 35;
-        this.levelMesh!.scene.position.z = 5;
-        this.levelMesh!.scene.position.y = 0;
         this.levelMesh!.scene.visible = true;
 
-        let navMeshLoaded;
-        await loadModel(glbLoader, this.LEVEL_NAV_MESH_PATH).then((obj) => {navMeshLoaded = obj});
-        this.navMesh = navMeshLoaded;
-        if(!this.navMesh) {
-            throw new Error("navmesh not loaded");
-        }
+        let navMeshModel: Mesh;
+        this.levelMesh!.scene.traverse((node) => {
+            if (node instanceof Mesh) {
+                if(node.name === "navmesh") {
+                    navMeshModel = node;
+                    node.material = new MeshBasicMaterial( { color: 0x1F85DE, wireframe: false } );
+                    node.material.transparent = true;
+                    node.material.opacity = 0.0;
+                } else if (node.name.includes(`info_playerstart`)) {
+                    let vec = new Vector3();
+                    node.getWorldPosition(vec);
+                    this.playerStarts.push(vec);
+                    let mat = new MeshBasicMaterial({
+                        transparent: true,
+                        opacity: 0.0
+                    });
+                    node.material = mat;
+                } else {
+                    node.castShadow = true;
+                    node.receiveShadow = true;
+                }
+            }
+        });
+        console.log(`loader: found ${this.playerStarts.length} playerStarts`);
+
+        this.navMesh = navMeshModel!;
 
         if(this.navMesh) {
-            //this.scene.add(this.navMesh.scene);
-            this.navMesh.scene.position.x = this.levelMesh!.scene.position.x;
-            this.navMesh.scene.position.z = this.levelMesh!.scene.position.z;
-            this.navMesh.scene.position.y = this.levelMesh!.scene.position.y;
-            this.navMesh.scene.visible = false;
-            //this.navMesh.scene.scale.y = 125;
-
-            let navMeshModel;
-            // this.navMesh.scene.traverse((node) => {
-            //     if (node instanceof Mesh) navMeshModel = node;
-            //     node.position.y = this.navMesh?.scene.position.y??0; // this is probably not needed. keeping child object in sync with parent just in case
-            // });
-
-            this.navMesh!.scene.traverse((node) => {
-                if (node instanceof Mesh) navMeshModel = node;
-                node.position.y = this.navMesh?.scene.position.y??0; // this is probably not needed. keeping child object in sync with parent just in case
-            });
-            const navWireframe = new Mesh((navMeshModel as THREE.Mesh).geometry, new MeshBasicMaterial({
-                color: 0x808080,
-                wireframe: true
+            const navWireframe = new Mesh(this.navMesh.geometry.clone(), new MeshBasicMaterial({
+                color: 0xDE1F85,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.0
             }));
+            navWireframe.name = "navmesh3";
+            navWireframe.geometry.rotateX(Math.PI/2);
+            navWireframe.geometry.scale(-1,1,1);
             this.scene.add(navWireframe);
-            navWireframe.position.x = this.levelMesh!.scene.position.x;
-            navWireframe.position.z = this.levelMesh!.scene.position.z;
-            navWireframe.position.y = this.levelMesh!.scene.position.y + .2;
-            const scalar = 1;
-            navWireframe.scale.x = 41.322*scalar;
-            navWireframe.scale.y = .03*scalar;
-            navWireframe.scale.z = 6*scalar;
-            navWireframe.visible = true;
+            this.navMesh.geometry.computeBoundingBox();
 
-            let zone = Pathfinding.createZone((navMeshModel as THREE.Mesh).geometry, 0.0001);
-            
+            const weldThreshold = .0001;//.04;
+            let zone = Pathfinding.createZone(navWireframe.geometry, weldThreshold);
             this.pathfinding.setZoneData(this.ZONE, zone);
+            this.setupTestSpheres(navWireframe);
 
+            // make a floor
+            let bbox = new Box3();
+            bbox.setFromObject(this.navMesh);
+            let size = new Vector3();
+            bbox.getSize(size);
+    
+            // let levelBody = new Body({
+            //     mass: 0,
+            //     shape: new Box(new Vec3(size.x/2, size.y/2, size.z/2)),
+            //     type: Body.STATIC,
+            //     collisionFilterGroup: COLLISION_FILTER_LEVEL
+            // })
+            // this.world.addBody(levelBody);
+            //console.warn(`Level: created a body of id ${levelBody.id}`);
+            //levelBody.position.set(this.navMesh.position.x, this.navMesh.position.y, this.navMesh.position.z);
+        }
+    }
+    
+    getPath(pointA:Vector3, pointB: Vector3, obj) {
+        // Find path from A to B.
+        const groupID = this.pathfinding.getGroup(this.ZONE, pointA, true);
 
-            const geometry = new SphereGeometry(.25, 32, 16 );
-            const material = new MeshBasicMaterial( { color: 0xffff00 } );
-            const sphere = new Mesh( geometry, material );
-            this.scene.add( sphere );
-            sphere.position.y = navWireframe.position.y+0;
+        let nodePointA = this.pathfinding.getClosestNode(pointA, this.ZONE, groupID, true);
+        let nodePointB = this.pathfinding.getClosestNode(pointB, this.ZONE, groupID, true);
+        if(nodePointB !== null) {
+            //console.log(`point: (${pointA.x}, ${pointA.y}, ${pointA.z}), (${pointB.x}, ${pointB.y}, ${pointB.z}) `);
+            //console.log(nodePointA, nodePointB, this.pathfinding,"zoneId: " + this.ZONE, "groupId: " + groupID);
+            console.log(nodePointA? nodePointA.centroid : "pointA node null", nodePointB? nodePointB.centroid : "pointB node null", "zoneId: " + this.ZONE, "groupId: " + groupID);
+            if(obj !== null && nodePointA === null) {
+                console.log("obj is not on the path. moving to closest node... ");
+                this.moveObjectToClosestNode(obj);
+                pointA = obj.position;
+            }
 
-            const geometry2 = new SphereGeometry( .25, 32, 16 );
-            const material2 = new MeshBasicMaterial( { color: 0xffff00 } );
-            const sphere2 = new Mesh( geometry2, material2 );
-            this.scene.add( sphere2 );
-            sphere2.position.y = navWireframe.position.y;
-            sphere2.position.x = sphere2.position.x + 6;
+            let path = this.pathfinding.findPath(pointA, pointB, this.ZONE, groupID);
+            console.log(path);
+            return path;
+        }
+        console.warn("destination point not on nav mesh. returning null");
+        return null;
+    }
 
-            const groupID = this.pathfinding.getGroup(this.ZONE, sphere2.position, true);
-            //console.log(`zone: ${zone.vertices.length}`);
-            let closestA = this.pathfinding.getClosestNode(sphere.position, this.ZONE, groupID, true)
-            let closestB = this.pathfinding.getClosestNode(sphere2.position, this.ZONE, groupID, true)
-            console.log(`closest: ${closestA}, ${closestB}`);
-
-            let path = this.pathfinding.findPath(sphere.position, sphere2.position, this.ZONE, groupID);
-            console.log(`pure path: ${path}`);
+    moveObjectToClosestNode(obj: Mesh) {
+        const groupID = this.pathfinding.getGroup(this.ZONE, obj.position, true);
+        let closestPos  = this.pathfinding.getClosestNode(obj.position, this.ZONE, groupID, true);
+        if(closestPos === null) {
+            closestPos = this.pathfinding.getClosestNode(obj.position, this.ZONE, groupID, false);
+        }
+        if(closestPos !== null) {
+            obj.position.x = closestPos.centroid.x;
+            obj.position.y = closestPos.centroid.y;
+            obj.position.z = closestPos.centroid.z;
+        } else {
+            console.error("fatal error. obj fell completely off and there is no closest node. ");
+            obj.position.set(0,0,0);
         }
     }
 
-    getPath(pointA:Vector3, pointB: Vector3) {
-        // Find path from A to B.
-        // 
-        pointA = new Vector3(pointA.x, 0.2, pointA.z);
-        pointB = new Vector3(pointB.x, 0.2, pointB.z);
-        const groupID = this.pathfinding.getGroup(this.ZONE, pointA, true);
-        let nodePointA: Vector3  = this.pathfinding.getClosestNode(pointA, this.ZONE, groupID, true);
-        let bodePointB: Vector3 = this.pathfinding.getClosestNode(pointB, this.ZONE, groupID, true);
-    
-
-        pointB = new Vector3(pointB.x, 0, pointB.z);
-        console.log(`point: (${pointA.x}, ${pointA.y}, ${pointA.z}), (${pointB.x}, ${pointB.y}, ${pointB.z}) `);
-        console.log(nodePointA, bodePointB, this.pathfinding,"zoneId: " + this.ZONE, "groupId: " + groupID);
-        let path = this.pathfinding.findPath(pointA, pointB, this.ZONE, groupID);
-        console.log(path);
-        return path;
+    addCollider(col) {
+        this.colliders.push(col);
     }
 
-    moveObjectToClosestNode(obj) {
-        const groupID = this.pathfinding.getGroup(this.ZONE, obj.position, true);
-        let closestPos  = this.pathfinding.getClosestNode(obj.position, this.ZONE, groupID, false);
-        obj.position.x = closestPos.x;
-        obj.position.y = closestPos.y;
-        obj.position.z = closestPos.z;
+    removeCollider(col) {
+        let index = this.colliders.indexOf(col);
+        if(index > 0) {
+            this.colliders.splice(index, 1);    
+        }
     }
 
-    // getClosestNode (position, zoneID, groupID, checkPolygon = false) {
-	// 	const nodes = this.zones[zoneID].groups[groupID];
-	// 	const vertices = this.zones[zoneID].vertices;
-	// 	let closestNode = null;
-	// 	let closestDistance = Infinity;
+    getColliders() {
+        return this.colliders;
+    }
 
-	// 	nodes.forEach((node) => {
-	// 		const distance = Utils.distanceToSquared(node.centroid, position);
-	// 		if (distance < closestDistance
-	// 				&& (!checkPolygon || Utils.isVectorInPolygon(position, node, vertices))) {
-	// 			closestNode = node;
-	// 			closestDistance = distance;
-	// 		}
-	// 	});
+    setupTestSpheres(navWireframe) {
+        // const boxGeo = new BoxGeometry(41, .5, 6 );
+        // const boxMaterial = new MeshBasicMaterial( { color: 0x843D00 } );
+        // const box = new Mesh( boxGeo, boxMaterial );
+        // this.scene.add( box );
+        // box.geometry.computeBoundingBox();
 
-	// 	return closestNode;
-	// }
+        let max = navWireframe.localToWorld(navWireframe.geometry.boundingBox!.max);
+
+        const geometry = new SphereGeometry(.25, 32, 16 );
+        const material = new MeshBasicMaterial( { color: 0xffff00 } );
+        const sphere = new Mesh( geometry, material );
+        this.scene.add( sphere );
+        sphere.position.set(0, max.y, 0);
+
+        
+        const geometry2 = new SphereGeometry( .25, 32, 16 );
+        const material2 = new MeshBasicMaterial( { color: 0xffff00 } );
+        const sphere2 = new Mesh( geometry2, material2 );
+        this.scene.add( sphere2 );
+        sphere2.position.y = max.y;
+        sphere2.position.x = sphere2.position.x + 6;
+
+        const groupID = this.pathfinding.getGroup(this.ZONE, sphere2.position, true);
+        //console.log(`zone: ${zone.vertices.length}`);
+        let closestA = this.pathfinding.getClosestNode(sphere.position, this.ZONE, groupID, true);
+        let closestB = this.pathfinding.getClosestNode(sphere2.position, this.ZONE, groupID, true);
+        console.log(`closest: ${closestA}, ${closestB}`);
+
+        let path = this.pathfinding.findPath(sphere.position, sphere2.position, this.ZONE, groupID);
+        console.log(`pure path: ${path}`);
+    }
 }

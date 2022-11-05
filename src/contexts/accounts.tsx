@@ -301,8 +301,8 @@ const UseNativeAccount = () => {
     });
     connection.onAccountChange(publicKey, (acc) => {
       if (acc) {
-        updateCache(acc);
-        setNativeAccount(acc);
+        //updateCache(acc);
+        //setNativeAccount(acc);
       }
     });
   }, [setNativeAccount, wallet, publicKey, connection, updateCache]);

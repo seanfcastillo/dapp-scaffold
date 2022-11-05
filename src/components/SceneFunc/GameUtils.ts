@@ -1,6 +1,12 @@
 import * as THREE from 'three'
-import { Camera, Object3D, ObjectLoader, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { Camera, Object3D, ObjectLoader, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { GLTF, GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { GuiManager } from './GuiManager';
+import { TopDownCamera } from './TopDownCamera';
+
+export const COLLISION_FILTER_LEVEL = 1; // MUST BE POT
+export const COLLISION_FILTER_UNIT = 2; // MUST BE POT
+export const COLLISION_FILTER_PHYSICS = 4; // MUST BE POT
 
 export async function loadModel(loader: GLTFLoader|ObjectLoader, path: string): Promise<GLTF|Object3D> {
     return await loader.loadAsync(path);
@@ -25,8 +31,9 @@ export function drawCircle(radius, segmentCount): THREE.Line {
 }
 
 export interface PlayerProps {
-    camera: PerspectiveCamera;
+    camera: TopDownCamera;
     canvas: WebGLRenderer;
     mainDiv: HTMLDivElement|null;
     scene: Scene;
+    guiManager: GuiManager;
 }
